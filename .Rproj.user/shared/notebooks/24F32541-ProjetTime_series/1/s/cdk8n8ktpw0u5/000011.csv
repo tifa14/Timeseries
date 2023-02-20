@@ -1,0 +1,6 @@
+"0","autoplot(elec_power_train,series=""Train set"") + "
+"0","  autolayer(elec_power_test,series='Test set')+"
+"0","  autolayer(prevar$mean,series='Dynamic Regression with Temperature')+"
+"0"," "
+"0","  xlab('Time (hr)') +"
+"0","  ylab('Power (kW)')"

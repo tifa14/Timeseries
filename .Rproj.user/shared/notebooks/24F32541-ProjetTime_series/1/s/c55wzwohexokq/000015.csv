@@ -1,0 +1,7 @@
+"0","elec_power_temp_train_ar_pred=auto.arima(elec_power,xreg=elec_temp)"
+"0","prevar17=forecast(elec_power_temp_train_ar_pred,h=96,xreg=temp_17)"
+"0","autoplot(elec_power,series=""Power Consumption 1/1/2010 - 16/1/2010"") +"
+"0","  autolayer(prevar17$mean,series=""SARIMA without covariate using Temperature for 17/2/2010"",PI=FALSE) +"
+"0","  xlab('Time (hr)') +"
+"0","  ylab('Power (kW)')"
+"2","Avis : [38;5;250mIgnoring unknown parameters: `PI`[39m"

@@ -1,0 +1,4 @@
+"0",""
+"0","# removing the trend"
+"0","elec_power.train.dif <- diff(elec_power_train)"
+"0","autoplot(elec_power.train.dif)"

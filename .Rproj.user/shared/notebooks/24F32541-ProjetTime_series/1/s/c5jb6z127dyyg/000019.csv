@@ -1,0 +1,4 @@
+"0","# reapplying SES on the filtered data"
+"0","SES.diff=ses(elec_power.train.dif,h=900 ,alpha = .2)"
+"0",""
+"0","autoplot(SES.diff)"

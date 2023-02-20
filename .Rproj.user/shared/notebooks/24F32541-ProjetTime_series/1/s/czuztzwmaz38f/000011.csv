@@ -1,0 +1,4 @@
+"0","elec_power_temp_train_ar=auto.arima(elec_power_train,xreg=elec_temp_train)"
+"0","prevar=forecast(elec_power_temp_train_ar,h=900,xreg=elec_temp_test)"
+"0","autoplot(elec_temp_test)+autolayer(prevar$mean)"
+"0",""

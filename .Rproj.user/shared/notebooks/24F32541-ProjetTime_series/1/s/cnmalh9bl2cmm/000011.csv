@@ -1,0 +1,5 @@
+"0","#We need to make two sets of data: the train one (80%) and the test one (20%) in order to evaluate the model. "
+"0","elec_power_train=head(elec_power,3607)"
+"0","elec_power_test=tail(elec_power,900)"
+"0","autoplot(elec_power_train,series=""Train set"")+"
+"0","autolayer(elec_power_test,series='Test set')"

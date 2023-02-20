@@ -1,0 +1,6 @@
+"0","#RMSE"
+"0","print(sqrt(mean((prevar$mean-elec_power_test)^2)))"
+"1","[1]"
+"1"," 16.9125"
+"1","
+"

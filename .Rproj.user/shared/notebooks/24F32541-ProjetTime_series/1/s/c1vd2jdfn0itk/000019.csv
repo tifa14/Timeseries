@@ -1,0 +1,7 @@
+"0","#Forecast 17/02/2010"
+"0",""
+"0","elec_power_arima_pred=auto.arima(elec_power)"
+"0","prev_arima_pred=forecast(elec_power_arima_pred,h=96)"
+"0","autoplot(elec_power,series=""Data set"")+"
+"0","  autolayer(prev_arima_pred$mean,series=""SARIMA without covariate"",PI=FALSE)"
+"2","Avis : [38;5;250mIgnoring unknown parameters: `PI`[39m"

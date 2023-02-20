@@ -1,0 +1,6 @@
+"0","#SARIMA model.   "
+"0",""
+"0","elec_power_arima=auto.arima(elec_power_train)"
+"0","prev_arima=forecast(elec_power_arima,h=900)"
+"0","autoplot(elec_power_test)+"
+"0","  autolayer(prev_arima$mean,series=""SARIMA without covariate"")"

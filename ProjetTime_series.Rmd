@@ -1,0 +1,456 @@
+---
+title: "Projet TimeSeries"
+author: "Fatimetou Haidara"
+date: "2023-01-30"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+#Installations
+#install.packages("readxl")
+#install.packages("forecast")
+#install.packages("ggplot2")
+library(readxl)
+library(forecast)
+library(ggplot2)
+library(tidyverse)
+library(fpp2)
+library(gridExtra)
+library(xlsx)
+```
+
+
+
+```{r cars}
+#Loading the data 
+data <- read_excel("C:/Users/f_ati/Documents/Master2/Times series/Projet/Timeseries/Elec-train.xlsx")
+data
+```
+```{r}
+#These quantities are measured every 15 minutes, 1h =60/15.
+#from 1/1/2010 1:15 to 2/16/2010 23:45.
+elec_power<-ts(data[1:4507,2],start=c(1,2),freq=24*60/15)
+tail(elec_power)
+plot(elec_power)
+
+     
+```
+
+
+
+```{r}
+mean(elec_power)
+```
+L'auto-corrélation nous montre qu'il y a un modèle saisionnier dans les données. 
+
+```{r}
+tmp=acf(elec_power,type="cor",plot = FALSE)
+tmp$acf[1:3,1,1]
+```
+```{r}
+plot(tmp)
+```
+```{r}
+pacf(elec_power)
+```
+Le graphique saisonnier nous le confirme.
+
+
+# We split the serie into train and test
+
+```{r}
+#We need to make two sets of data: the train one (80%) and the test one (20%) in order to evaluate the model. 
+elec_power_train=head(elec_power,3607)
+elec_power_test=tail(elec_power,900)
+autoplot(elec_power_train,series="Train set")+
+autolayer(elec_power_test,series='Test set')
+```
+########################### FORECAST ####################################
+
+# On commence par les modèles qui ne tiennent pas compte des tendances saisonnières.
+
+# **Lissage exponentiel simple (SES)**
+
+La technique de lissage exponentiel simple est utilisée pour les données qui n’ont pas de tendance ou de modèle saisonnier.
+```{r}
+
+SES=ses(elec_power_train,h=900, alpha = .2)
+round(accuracy(SES,elec_power_test),2)
+
+```
+```{r}
+autoplot(SES)
+```
+Nous pouvons remarquer qu’une estimation plate est projetée vers l’avenir par notre modèle de prévision. Par conséquent, nous pouvons dire que d’après les données, il ne capture pas la tendance actuelle. 
+
+Par conséquent, pour corriger cela, nous utiliserons la fonction diff() pour supprimer la tendance des données.
+
+```{r}
+
+# removing the trend
+elec_power.train.dif <- diff(elec_power_train)
+autoplot(elec_power.train.dif)
+# reapplying SES on the filtered data
+SES.diff=ses(elec_power.train.dif,h=900 ,alpha = .2)
+
+autoplot(SES.diff)
+```
+Afin de comprendre les performances de notre modèle, nous devons comparer nos prévisions avec notre ensemble de données de test.Puisque notre ensemble de données train a été différencié, nous devons également créer un ensemble de test différencié.
+
+
+Ici, nous allons créer un ensemble de test différencié et ensuite comparer notre prévision .Le paramètre de lissage, « alpha », contrôle le poids accordé à l’observation la plus récente. Nous définissons la valeur de alpha entre 0,02 et 0,99 en utilisant la boucle.
+Nous essayons de comprendre quel niveau minimisera le test RMSE. 
+```{r}
+
+# removing trend from test set
+elec_power.dif.test <- diff(elec_power_test)
+accuracy(SES.diff, elec_power.dif.test)
+
+# comparing our model
+alpha <- seq(.01, .99, by = .01)
+RMSE <- NA
+for(i in seq_along(alpha)) {
+  fit <- ses(elec_power.train.dif, alpha = alpha[i],
+             h = 900)
+  RMSE[i] <- accuracy(fit,
+                      elec_power.dif.test)[2,2]
+}
+
+# convert to a data frame and
+# identify min alpha value
+alpha.fit <- data_frame(alpha, RMSE)
+alpha.min <- filter(alpha.fit,
+                    RMSE == min(RMSE))
+
+# plot RMSE vs. alpha
+ggplot(alpha.fit, aes(alpha, RMSE)) +
+  geom_line() +
+  geom_point(data = alpha.min,
+             aes(alpha, RMSE),
+             size = 2, color = "red")
+```
+Nous remarquerons que environs 0,2 minimisera le plus.
+
+Maintenant, nous allons essayer de réajuster notre modèle de prévision pour le SES avec alpha = 0,2. 
+```{r}
+# refit model with alpha = .7
+SES.opt=ses(elec_power.train.dif,h=900 ,alpha = .2)
+round(accuracy(SES.opt,elec_power.dif.test),2)
+
+```
+```{r}
+ 
+# plotting results
+p1 <- autoplot(SES.opt) +
+  theme(legend.position = "bottom")
+p2 <- autoplot(elec_power.dif.test) +
+  autolayer(SES.opt, alpha = .2) +
+  ggtitle("Predicted vs. actuals for
+                 the test data set")
+ 
+gridExtra::grid.arrange(p1, p2,
+                        nrow = 1)
+```
+
+L’intervalle de confiance prédit de notre modèle est beaucoup plus étroit.
+
+
+# Méthode de Holt
+Nous avons vu qu’en SES, nous avons dû supprimer les tendances à long terme pour améliorer le modèle. 
+Mais dans la méthode de Holt, nous pouvons appliquer un lissage exponentiel tout en capturant les tendances dans les données.
+Cependat Il s'agit d'une technique qui fonctionne avec des données présentant une tendance mais pas de saisonnalité. 
+
+
+```{r}
+# Forecasting with a Holt  
+HOLT=holt(elec_power_train,h=900,alpha=NULL,beta=NULL)
+round(accuracy(HOLT,elec_power_test),2)
+autoplot(elec_power_train) + autolayer(HOLT,series='fitted',PI=FALSE)
+
+```
+Le modèle n'est pas adapté avec un RMSE de 64.57
+
+
+# Holt-Winter’s Seasonal Method et Damping Method
+
+cette methode est utilisée pour les données présentant à la fois des tendances et des tendances saisonnières. Cette méthode peut être implémentée soit en utilisant la structure additive, soit en utilisant la structure multiplicative en fonction de l’ensemble de données.
+
+La méthode d’amortissement utilise le coefficient d’amortissement phi pour estimer de manière plus prudente les tendances prévues. La valeur de phi se situe entre 0 et 1. Si nous croyons que notre modèle additif et multiplicatif va être une ligne plate, alors il y a de fortes chances qu’il soit amorti. 
+
+
+Cependantla fréquence des données est trop élevée pour la fonction ets().
+La suggestion de Rob Hyndman est de modéliser la saisonnalité en utilisant des termes de Fourier, et éventuellement en utilisant ARIMA pour les résidus. 
+
+```{r}
+#Additive seasonal Holt-Winters 
+#fit1=hw(elec_power_train,  seasonal = "additive",h=900)
+
+#Multiplicative seasonal Holt-Winters 
+#fit2 = hw(elec_power_train, seasonal='multiplicative',h=900)
+
+```
+
+```{r}
+
+#Damped additive seasonal Holt-Winters 
+#fit3 = hw(elec_power_train, seasonal='additive',h=900,damped=TRUE)
+
+#Damped multiplicative seasonal Holt-Winters 
+#fit4 = hw(elec_power_train,seasonal='multiplicative',h=900,damped=TRUE)
+```
+
+
+Pour l'instant le meilleur modèle est SES.opt , présentant l'erreur la plus faible avec un RMSE=16.98. 
+
+
+# **Forecasting with ARMA models**  
+
+
+```{r}
+#SARIMA model.   
+
+elec_power_arima=auto.arima(elec_power_train)
+prev_arima=forecast(elec_power_arima,h=900)
+autoplot(elec_power_test)+
+  autolayer(prev_arima$mean,series="SARIMA without covariate")
+
+
+autoplot(elec_power_train,series="Train set") + 
+  autolayer(elec_power_test,series='Test set')+
+  autolayer(prev_arima,series='SARIMA without covariate',PI=FALSE)+
+  xlab('Time (hr)') +
+  ylab('Power (kW)')
+
+```
+```{r}
+round(accuracy(prev_arima, elec_power_test),2)
+```
+Les résultats sont un peu plus meilleurs.
+
+# **Forecasting with Neural Network**
+We van automatically select the best NNAR(p,P,k)T:
+```{r}
+elec_power_nn = nnetar(elec_power_train)
+pred_elec_power_nn = forecast(elec_power_nn, h = 900)
+autoplot(elec_power_train,series="Train set") + 
+  autolayer(elec_power_test,series='Test set')+
+  autolayer(pred_elec_power_nn$mean,series='Neural Network')+
+  xlab('Time (hr)') +
+  ylab('Power (kW)')
+
+```
+
+```{r}
+round(accuracy(pred_elec_power_nn, elec_power_test),2)
+```
+On a pas pas de meilleur resultat avec le Neural Network.
+
+
+```{r}
+print(elec_power_nn)
+
+```
+
+
+```{r}
+pred_elec_power_nn %>% forecast(h=900) %>% autoplot()
+
+```
+Les prévisions sont moins efficaces qu'avec les modèles SARIMA.
+
+```{r}
+autoplot(elec_power_test,series='Test set') + 
+  
+  autolayer(pred_elec_power_nn$mean,series='Neural Network')+
+  autolayer(prev_arima,series='SARIMA without covariate',PI=FALSE)+
+  xlab('Time (hr)') +
+  ylab('Power (kW)')
+
+
+```
+On conclue que le meilleur modèle est SARIMA , présentant l'erreur la plus faible avec un RMSE=16.98. 
+
+
+Nous allons maintenant prévoir la consommation d'électricité (kW) pour le 17/02/2010 avec 96 observations.
+
+```{r}
+#Forecast 17/02/2010
+
+elec_power_arima_pred=auto.arima(elec_power)
+prev_arima_pred=forecast(elec_power_arima_pred,h=96)
+autoplot(elec_power,series="Data set")+
+  autolayer(prev_arima_pred$mean,series="SARIMA without covariate",PI=FALSE)
+
+
+```
+
+```{r} 
+# Results
+Pred = print(prev_arima_pred)
+```
+Les termes « prévisions ponctuelles », « Lo 80 », « Hi 80 », « Lo 95 » et « Hi 95 » sont couramment utilisés dans les prévisions de séries chronologiques pour représenter différents niveaux d’incertitude dans la prévision.
+
+Prévision ponctuelle : Il s’agit de la valeur la plus probable ou la plus attendue de la prévision.
+Lo 80 et Hi 80 : Ces valeurs représentent respectivement les limites inférieure et supérieure de l’intervalle de prédiction de 80 %. Ils indiquent qu’il y a 80% de chances que la valeur réelle se situe dans cette fourchette.
+Lo 95 et Hi 95 : Ces valeurs représentent respectivement les limites inférieure et supérieure de l’intervalle de prédiction de 95 %. Ils indiquent qu’il y a 95% de chances que la valeur réelle se situe dans cette fourchette.
+Par exemple, si la prévision de points est 100, Lo 80 est 90, Hi 80 est 110, Lo 95 est 85, Hi 95 est 115. Cela signifie que le point prévu est 100 avec 80% de chances que la valeur réelle tombe entre 90 et 110, et 95% de chance que la valeur réelle tombe entre 85 et 115.
+```{r}
+#Checking model
+
+checkresiduals(prev_arima_pred,test="LB",plot=TRUE)
+
+```
+
+
+```{r}
+
+#write_csv(Pred,file="Pred_sans_temperature.csv")
+#write.xlsx(Pred, file, sheetName = "Sheet1", 
+ # col.names = TRUE, row.names = TRUE, append = FALSE)
+```
+```{r}
+
+```
+
+```{r}
+
+```
+
+# **Part 2: Forecast electricity consumption by using outdoor temperature**
+
+```{r}
+elec_power_temp<-ts(data[1:4507,2:3],start=c(1,2),freq=96)
+plot(elec_power_temp)
+autoplot(elec_power_temp)
+```
+
+```{r}
+elec_temp<-ts(data[1:4507,3],start=c(1,2),freq=96)
+plot(elec_temp)
+autoplot(elec_temp)
+```
+
+
+```{r}
+#We need to make two sets of data: the train one (80%) and the test one (20%) in order to evaluate the model. 
+elec_temp_train=head(elec_temp,3607)
+elec_temp_test=tail(elec_temp,900)
+
+```
+
+# **Forecasting SARIMA model:**
+
+
+```{r}
+elec_power_temp_train_ar=auto.arima(elec_power_train,xreg=elec_temp_train)
+prevar=forecast(elec_power_temp_train_ar,h=900,xreg=elec_temp_test)
+autoplot(elec_temp_test)+autolayer(prevar$mean)
+
+```
+```{r}
+#RMSE
+print(sqrt(mean((prevar$mean-elec_power_test)^2)))
+
+```
+```{r}
+autoplot(elec_power_train,series="Train set") + 
+  autolayer(elec_power_test,series='Test set')+
+  autolayer(prevar$mean,series='Dynamic Regression with Temperature')+
+ 
+  xlab('Time (hr)') +
+  ylab('Power (kW)')
+```
+vérifions le résidu, il y a encore des autocorrélations :
+```{r}
+summary(elec_power_temp_train_ar)
+
+#autocorrelation of residuals 
+checkresiduals(elec_power_temp_train_ar,test="LB",plot=TRUE)
+```
+Nous pouvons essayer de trouver un meilleur modèle manuellement. Regardons la relation entre le Power et la Temp
+```{r}
+plot(elec_temp_train,elec_power_train)
+
+```
+
+# **Forecasting with Neural Network**
+We van automatically select the best NNAR(p,P,k)T:
+
+```{r}
+elec_power_temp_nn = nnetar(elec_power_train,xreg = elec_temp_train)
+pred_elec_power_temp_nn = forecast(elec_power_temp_nn,xreg = elec_temp_test, h = 900)
+autoplot(elec_power_train,series="Train set") + 
+  autolayer(elec_power_test,series='Test set')+
+  autolayer(pred_elec_power_temp_nn$mean,series='Neural Network')+
+  xlab('Time (hr)') +
+  ylab('Power (kW)')
+
+autoplot(elec_power_train,series='Test set') + 
+  autolayer(pred_elec_power_temp_nn$mean,series='Neural Network')+
+  xlab('Time (hr)') +
+  ylab('Power (kW)')
+```
+```{r}
+
+#RMSE
+print(sqrt(mean((pred_elec_power_temp_nn$mean-elec_power_test)^2)))
+```
+C'est donc SARIMA le meilleur modèle avec un RMSE de 16.912.
+
+```{r}
+
+#We can zoom in the prediction.
+
+autoplot(elec_power_test,series='Test set') + 
+  autolayer(pred_elec_power_temp_nn$mean,series='Neural Network + Temperature')+
+  autolayer(prevar,series='SARIMA without covariate',PI=FALSE)+
+  xlab('Time (hr)') +
+  ylab('Power (kW)')
+
+
+```
+
+Nous allons maintenant prévoir la consommation d'électricité (kW) pour le 17/02/2010 en fonction de la température avec 96 observations.
+
+```{r}
+temp_17 <- ts(data[4508:4603,3], frequency = 96, start=c(1,2))
+head(temp_17) 
+tail(temp_17)
+```
+
+
+```{r}
+elec_power_temp_train_ar_pred=auto.arima(elec_power,xreg=elec_temp)
+prevar17=forecast(elec_power_temp_train_ar_pred,h=96,xreg=temp_17)
+autoplot(elec_power,series="Power Consumption 1/1/2010 - 16/1/2010") +
+  autolayer(prevar17$mean,series="SARIMA without covariate using Temperature for 17/2/2010",PI=FALSE) +
+  xlab('Time (hr)') +
+  ylab('Power (kW)')
+
+
+
+```
+
+```{r}
+#Pred results
+Pred_T = print(prevar17)
+```
+
+```{r}
+#Checking model
+
+checkresiduals(prevar17,test="LB",plot=TRUE)
+
+```
+```{r}
+#write_csv(Pred_T,file="Pred_with_temperature.csv")
+#write.xlsx(Pred_T, file, sheetName = "Sheet1", 
+ # col.names = TRUE, row.names = TRUE, append = FALSE)
+```
+
+
+# Conclusion:
+
+## Le meilleur modèle de prévision est SARIMA avec prise en compte de la température.

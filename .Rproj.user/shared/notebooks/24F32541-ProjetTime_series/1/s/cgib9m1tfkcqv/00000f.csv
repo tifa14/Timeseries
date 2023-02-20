@@ -1,0 +1,7 @@
+"0","elec_power_temp_nn = nnetar(elec_power_train,xreg = elec_temp_train)"
+"0","pred_elec_power_temp_nn = forecast(elec_power_temp_nn,xreg = elec_temp_test, h = 900)"
+"0","autoplot(elec_power_train,series=""Train set"") + "
+"0","  autolayer(elec_power_test,series='Test set')+"
+"0","  autolayer(pred_elec_power_temp_nn$mean,series='Neural Network')+"
+"0","  xlab('Time (hr)') +"
+"0","  ylab('Power (kW)')"

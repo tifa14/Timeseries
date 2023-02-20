@@ -1,0 +1,7 @@
+"0",""
+"0","#RMSE"
+"0","print(sqrt(mean((pred_elec_power_temp_nn$mean-elec_power_test)^2)))"
+"1","[1]"
+"1"," 59.48637"
+"1","
+"

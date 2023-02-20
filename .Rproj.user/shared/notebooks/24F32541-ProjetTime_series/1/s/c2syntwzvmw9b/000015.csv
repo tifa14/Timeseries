@@ -1,0 +1,2 @@
+"0","pred_elec_power_nn %>% forecast(h=900) %>% autoplot()"
+"0",""

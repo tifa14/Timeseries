@@ -1,0 +1,3 @@
+"0","#Loading the data "
+"0","data <- read_excel(""C:/Users/f_ati/Documents/Master2/Times series/Projet/Timeseries/Elec-train.xlsx"")"
+"0","data"

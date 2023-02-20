@@ -1,0 +1,2 @@
+"0","elec_power_temp<-ts(data[1:4507,2:3],start=c(1,2),freq=96)"
+"0","plot(elec_power_temp)"

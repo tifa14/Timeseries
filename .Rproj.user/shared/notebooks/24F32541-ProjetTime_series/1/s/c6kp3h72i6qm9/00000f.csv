@@ -1,0 +1,4 @@
+"0","#We need to make two sets of data: the train one (80%) and the test one (20%) in order to evaluate the model. "
+"0","elec_temp_train=head(elec_temp,3607)"
+"0","elec_temp_test=tail(elec_temp,900)"
+"0",""
